@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: run
 run: venv
-	./venv/bin/python src/main.py
+	./venv/bin/python src/qv_bot.py
 
 .PHONY: test
 test: venv

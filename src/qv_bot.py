@@ -50,7 +50,7 @@ class QualityVoteBot:
             if not self.__has_stickied_comment(submission) \
                     and submission.link_flair_template_id not in self.config.ignore_flairs:
                 self.logger_add_comment.debug(f"https://www.reddit.com{submission.permalink}")
-                sticky = submission.reply(self.config.removal_comment)
+                sticky = submission.reply(self.config.vote_comment)
                 sticky.mod.distinguish(how="yes", sticky=True)
             else:
                 self.logger_add_comment.debug(f"Ignoring https://www.reddit.com{submission.permalink}")
@@ -67,7 +67,9 @@ class QualityVoteBot:
 
     def parse_config(self, text):
         config = yaml.safe_load(text)
-        return DotDict(config)
+        dot_dict = DotDict(config)
+        dot_dict.vote_comment = dot_dict.vote_comment.replace("{{subreddit}}", self.subreddit.display_name)
+        return dot_dict
 
     def __has_stickied_comment(self, submission):
         return len(submission.comments) > 0 and submission.comments[0].stickied
@@ -89,7 +91,7 @@ if __name__ == "__main__":
                          password=os.environ["reddit_password"],
                          client_id=os.environ["reddit_client_id"],
                          client_secret=os.environ["reddit_client_secret"],
-                         user_agent="desktop:com.halfdane.superstonk_qvbot:v0.0.2 (by u/half_dane)")
+                         user_agent="desktop:com.halfdane.superstonk_qvbot:v0.0.3 (by u/half_dane)")
 
     aReddit.validate_on_submit = True
     logging.info(f'working as {aReddit.user.me()}')
