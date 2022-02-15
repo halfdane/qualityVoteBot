@@ -1,15 +1,6 @@
-# superstonkFlairChangeBot
+# qualityVoteBot
 
-A bot that supports mod-controlled flair granting.
-
-While the bot runs, comment in Superstonk `!flairy:explain!`
-
-To grant a flair, copy the user's request (something like `!FLAIRY!🚀Flair text🚀(red)`) into a response to their request.
-The flairy bot will replace your comment with a cute confirmation message if everything went right,
-otherwise it will be a humouros error message.
-
-You will get a DM from the flairy containing the details of the change so you have a chance of 
-reverting them in case something goes terribly wrong!
+A mod bot that will sticky a comment on every new thread in your subreddit, just like [the original quality vote bot](https://old.reddit.com/r/QualityVote/comments/ji9kf6/introducing_qualityvote/)
 
 
 # Run
@@ -25,11 +16,7 @@ You have to export the following environment variables:
 
 Afterwards execute
 
-    make flairy
+    make
 
 This sets up the venv for python and downloads the necessary dependencies before running the tests and starting the bot  
 
-# Targets
-
-    make flairy     # execute the bot 
-    make clean      # clean up compile results and the venv
