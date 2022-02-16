@@ -2,6 +2,8 @@ import logging
 import os
 import threading
 import time
+
+import chevron
 import praw
 import yaml
 
@@ -16,9 +18,14 @@ class DotDict(dict):
 class QualityVoteBot:
     logger = logging.getLogger(__name__)
 
+    default_config = {
+            'report_reason': 'Score of stickied comment has dropped below threshold',
+        }
+
     def __init__(self, reddit):
         self.reddit = reddit
-        self.subreddit = reddit.subreddit(os.environ["target_subreddit"])
+        self.subreddit = self.reddit.subreddit(os.environ["target_subreddit"])
+        self.config = None
         self.fetch_config_from_wiki()
 
     def run_threaded(self, interval, job_func):
@@ -42,9 +49,9 @@ class QualityVoteBot:
     def add_comments_to_posts(self, ):
         for submission in self.subreddit.stream.submissions():
             if not self.__has_stickied_comment(submission) \
-                    and submission.link_flair_template_id not in self.config.ignore_flairs:
+                    and submission.link_flair_template_id not in self.config['ignore_flairs']:
                 self.logger.info(f"https://www.reddit.com{submission.permalink}")
-                sticky = submission.reply(self.config.vote_comment)
+                sticky = submission.reply(self.config['vote_comment'])
                 sticky.mod.distinguish(how="yes", sticky=True)
             else:
                 self.logger.debug(f"Ignoring https://www.reddit.com{submission.permalink}")
@@ -54,20 +61,21 @@ class QualityVoteBot:
         count = 0
         for comment in self.reddit.user.me().comments.new(limit=None):
             count += 1
-            if not self.__is_removed(comment.parent()) and comment.score <= self.config.report_threshold:
-                comment.parent().report(f"Score of stickied comment has dropped below threshold of {self.config.report_threshold}")
+            if not self.__is_removed(comment.parent()) and comment.score <= self.config['report_threshold']:
+                model: dict = self.config.copy()
+                model.update(comment.parent().__dict__)
+                comment.parent().report(chevron.render(self.config['report_reason'], model))
         self.logger.info(f"looked at {count} comments")
 
     def fetch_config_from_wiki(self):
-        self.config = self.parse_config(self.subreddit.wiki['qualityvote'].content_md)
+        wiki_config_text = self.subreddit.wiki['qualityvote'].content_md
+        wiki_config = yaml.safe_load(wiki_config_text)
+        updated_config: dict = self.default_config.copy()
+        updated_config.update(wiki_config)
+        updated_config['vote_comment'] = chevron.render(updated_config['vote_comment'], self.__dict__)
+        self.config = updated_config
         self.logger.info(f"reloaded config")
         self.logger.debug(self.config)
-
-    def parse_config(self, text):
-        config = yaml.safe_load(text)
-        dot_dict = DotDict(config)
-        dot_dict.vote_comment = dot_dict.vote_comment.replace("{{subreddit}}", self.subreddit.display_name)
-        return dot_dict
 
     def __has_stickied_comment(self, submission):
         return len(submission.comments) > 0 and submission.comments[0].stickied
@@ -93,5 +101,4 @@ if __name__ == "__main__":
 
     aReddit.validate_on_submit = True
     logging.info(f'working as {aReddit.user.me()}')
-
     QualityVoteBot(aReddit).run()
