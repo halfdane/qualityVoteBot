@@ -2,7 +2,6 @@ import logging
 import os
 import threading
 import time
-import datetime
 import praw
 import yaml
 
@@ -16,54 +15,53 @@ class DotDict(dict):
 
 class QualityVoteBot:
     logger = logging.getLogger(__name__)
-    logger_add_comment = logging.getLogger(__name__ + "_add_comments")
-    logger_check_votes = logging.getLogger(__name__ + "_check_votes")
 
     def __init__(self, reddit):
-        self.logger.setLevel(logging.DEBUG)
-        self.logger_add_comment.setLevel(logging.DEBUG)
-        self.logger_check_votes.setLevel(logging.DEBUG)
         self.reddit = reddit
         self.subreddit = reddit.subreddit(os.environ["target_subreddit"])
         self.fetch_config_from_wiki()
 
     def run_threaded(self, interval, job_func):
-        def repeat(interval, job_func):
+        def repeat():
             while True:
                 try:
                     job_func()
                 except Exception as e:
                     self.logger.error(e)
-                self.logger_check_votes.info(f"starting to sleep at {datetime.datetime.now()}")
+                self.logger.debug(f"starting to sleep")
                 time.sleep(interval)
 
-        job_thread = threading.Thread(target=repeat(interval, job_func))
+        job_thread = threading.Thread(target=repeat, name=job_func.__name__.upper())
         job_thread.start()
 
     def run(self):
-        self.run_threaded(360, self.add_comment_to_every_post)
-        self.run_threaded(360, self.check_existing_comments)
+        self.run_threaded(360, self.add_comments_to_posts)
+        self.run_threaded(360, self.check_recent_comments)
         self.run_threaded(360, self.fetch_config_from_wiki)
 
-    def add_comment_to_every_post(self, ):
+    def add_comments_to_posts(self, ):
         for submission in self.subreddit.stream.submissions():
             if not self.__has_stickied_comment(submission) \
                     and submission.link_flair_template_id not in self.config.ignore_flairs:
-                self.logger_add_comment.debug(f"https://www.reddit.com{submission.permalink}")
+                self.logger.info(f"https://www.reddit.com{submission.permalink}")
                 sticky = submission.reply(self.config.vote_comment)
                 sticky.mod.distinguish(how="yes", sticky=True)
             else:
-                self.logger_add_comment.debug(f"Ignoring https://www.reddit.com{submission.permalink}")
+                self.logger.debug(f"Ignoring https://www.reddit.com{submission.permalink}")
 
-    def check_existing_comments(self, ):
+    def check_recent_comments(self, ):
+        self.logger.info("checking comments")
+        count = 0
         for comment in self.reddit.user.me().comments.new(limit=None):
-            if not self.__is_removed(comment.parent()):
-                if comment.score <= self.config.report_threshold:
-                    comment.parent().report(f"Score of stickied comment has dropped below threshold of {self.config.report_threshold}")
+            count += 1
+            if not self.__is_removed(comment.parent()) and comment.score <= self.config.report_threshold:
+                comment.parent().report(f"Score of stickied comment has dropped below threshold of {self.config.report_threshold}")
+        self.logger.info(f"looked at {count} comments")
 
     def fetch_config_from_wiki(self):
         self.config = self.parse_config(self.subreddit.wiki['qualityvote'].content_md)
-        self.logger.debug(f"config: {self.config}")
+        self.logger.info(f"reloaded config")
+        self.logger.debug(self.config)
 
     def parse_config(self, text):
         config = yaml.safe_load(text)
@@ -79,14 +77,14 @@ class QualityVoteBot:
             author = str(s.author.name)
         except:
             author = '[Deleted]'
-        if s.banned_by is not None and author != '[Deleted]':
+        if s.banned_by is not None or author != '[Deleted]':
             return True
         else:
             return False
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(threadName)s %(message)s')
     aReddit = praw.Reddit(username=os.environ["reddit_username"],
                          password=os.environ["reddit_password"],
                          client_id=os.environ["reddit_client_id"],
