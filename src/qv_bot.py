@@ -2,17 +2,11 @@ import logging
 import os
 import threading
 import time
+from datetime import datetime
 
 import chevron
 import praw
 import yaml
-
-
-class DotDict(dict):
-    """dot.notation access to dictionary attributes"""
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
 
 
 class QualityVoteBot:
@@ -50,7 +44,7 @@ class QualityVoteBot:
         for submission in self.subreddit.stream.submissions():
             if not self.__has_stickied_comment(submission) \
                     and submission.link_flair_template_id not in self.config['ignore_flairs']:
-                self.logger.info(f"https://www.reddit.com{submission.permalink}")
+                self.logger.debug(f"https://www.reddit.com{submission.permalink}")
                 sticky = submission.reply(self.config['vote_comment'])
                 sticky.mod.distinguish(how="yes", sticky=True)
             else:
@@ -59,13 +53,24 @@ class QualityVoteBot:
     def check_recent_comments(self, ):
         self.logger.info("checking comments")
         count = 0
+        first = None
+        last = None
         for comment in self.reddit.user.me().comments.new(limit=None):
+            if first is None:
+                first = comment.created_utc
+            last = comment.created_utc
             count += 1
-            if not self.__is_removed(comment.parent()) and comment.score <= self.config['report_threshold']:
+            if hasattr(comment.parent(), 'post_hint') \
+                    and self.post_is_available(comment.parent()) \
+                    and comment.score <= self.config['report_threshold']:
                 model: dict = self.config.copy()
                 model.update(comment.parent().__dict__)
+                self.logger.debug(f"{comment.score} https://www.reddit.com{comment.parent().permalink}")
                 comment.parent().report(chevron.render(self.config['report_reason'], model))
-        self.logger.info(f"looked at {count} comments")
+
+        self.logger.info(f"looked at {count} comments "
+                         f"between {datetime.utcfromtimestamp(last).strftime('%Y-%m-%d %H:%M:%S')} "
+                         f"and {datetime.utcfromtimestamp(first).strftime('%Y-%m-%d %H:%M:%S')}")
 
     def fetch_config_from_wiki(self):
         wiki_config_text = self.subreddit.wiki['qualityvote'].content_md
@@ -80,15 +85,9 @@ class QualityVoteBot:
     def __has_stickied_comment(self, submission):
         return len(submission.comments) > 0 and submission.comments[0].stickied
 
-    def __is_removed(self, s):
-        try:
-            author = str(s.author.name)
-        except:
-            author = '[Deleted]'
-        if s.banned_by is not None or author != '[Deleted]':
-            return True
-        else:
-            return False
+    def post_is_available(self, post):
+        self.logger.debug(f"Forcing eager fetch of {post.title}")
+        return post.removed_by_category is None
 
 
 if __name__ == "__main__":
