@@ -60,8 +60,7 @@ class QualityVoteBot:
                 first = comment.created_utc
             last = comment.created_utc
             count += 1
-            if hasattr(comment.parent(), 'post_hint') \
-                    and self.post_is_available(comment.parent()) \
+            if self.post_is_available(comment.parent()) \
                     and comment.score <= self.config['report_threshold']:
                 model: dict = self.config.copy()
                 model.update(comment.parent().__dict__)
@@ -100,4 +99,6 @@ if __name__ == "__main__":
 
     aReddit.validate_on_submit = True
     logging.info(f'working as {aReddit.user.me()}')
-    QualityVoteBot(aReddit).run()
+    quality_vote_bot = QualityVoteBot(aReddit)
+    quality_vote_bot.run()
+
