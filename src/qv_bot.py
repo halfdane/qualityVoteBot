@@ -85,8 +85,11 @@ class QualityVoteBot:
         return len(submission.comments) > 0 and submission.comments[0].stickied
 
     def post_is_available(self, post):
-        self.logger.debug(f"Forcing eager fetch of {post.title}")
-        return post.removed_by_category is None
+        try:
+            self.logger.debug(f"Forcing eager fetch of {post.title}")
+        except:
+            logging.info(f"ignoring problems with fetching info for {post.permalink}")
+        return getattr(post, 'removed_by_category', None) is None
 
 
 if __name__ == "__main__":
