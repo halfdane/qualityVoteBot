@@ -47,6 +47,7 @@ class QualityVoteBot:
                 self.logger.debug(f"https://www.reddit.com{submission.permalink}")
                 sticky = submission.reply(self.config['vote_comment'])
                 sticky.mod.distinguish(how="yes", sticky=True)
+                sticky.mod.ignore_reports()
             else:
                 self.logger.debug(f"Ignoring https://www.reddit.com{submission.permalink}")
 
