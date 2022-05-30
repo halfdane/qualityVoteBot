@@ -1,3 +1,12 @@
+++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+THIS PROJECT IS NOW RETIRED
+
+The functionality of Superstonk's QV bot has moved into another place.
+
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 # qualityVoteBot
 
 A mod bot that will sticky a comment on every new thread in your subreddit, just like [the original quality vote bot](https://old.reddit.com/r/QualityVote/comments/ji9kf6/introducing_qualityvote/)
